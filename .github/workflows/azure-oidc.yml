@@ -1,4 +1,4 @@
-name: Azure OIDC Validation
+name: Azure Terraform Plan
 
 on:
   workflow_dispatch:
@@ -8,13 +8,22 @@ permissions:
   contents: read
 
 jobs:
-  azure-auth:
-    name: Validate Azure OIDC Authentication
+  terraform-plan:
+    name: Terraform Plan with OIDC
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: infra
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.5"
 
       - name: Login to Azure with OIDC
         uses: azure/login@v2
@@ -23,6 +32,18 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Verify Azure context
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
         run: |
-          az account show --output table
+          terraform plan \
+            -input=false \
+            -out=tfplan \
+            -var="storage_account_name=${{ vars.AZURE_STORAGE_ACCOUNT_NAME }}"
+
+      - name: Show Terraform Plan
+        run: terraform show -no-color tfplan
